@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class Qualification(BaseModel):
     budget_confirmed: bool = False
-    budget_range_usd: str | None = None
+    budget_range_usd: Optional[str] = None
 
     authority_confirmed: bool = False
     economic_buyer_identified: bool = False
@@ -14,7 +16,7 @@ class Qualification(BaseModel):
     quantified_problem: bool = False
 
     timeline_confirmed: bool = False
-    target_decision_date: str | None = None
+    target_decision_date: Optional[str] = None
 
     decision_process_known: bool = False
     procurement_process_known: bool = False
