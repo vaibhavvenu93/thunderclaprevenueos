@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from textwrap import dedent
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import streamlit as st
 
@@ -36,296 +36,284 @@ st.set_page_config(
 # ==========================================================
 
 st.markdown(
-    """
-    <style>
+    dedent(
+        """
+        <style>
 
-    /* -----------------------------------------------
-       APP
-    ------------------------------------------------ */
+        .stApp {
+            background:
+                radial-gradient(
+                    circle at 82% -10%,
+                    rgba(216,255,56,0.10),
+                    transparent 28%
+                ),
+                #F7F7F2;
+            color: #171717;
+        }
 
-    .stApp {
-        background:
-            radial-gradient(
-                circle at 80% -10%,
-                rgba(210,255,0,0.08),
-                transparent 25%
-            ),
-            #F7F7F2;
-        color: #171717;
-    }
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 5rem;
+            max-width: 1450px;
+        }
 
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 5rem;
-        max-width: 1450px;
-    }
+        section[data-testid="stSidebar"] {
+            background: #111111;
+            border-right: 1px solid #282828;
+        }
 
-    /* -----------------------------------------------
-       SIDEBAR
-    ------------------------------------------------ */
+        section[data-testid="stSidebar"] * {
+            color: #F6F6EF;
+        }
 
-    section[data-testid="stSidebar"] {
-        background: #111111;
-        border-right: 1px solid #262626;
-    }
+        section[data-testid="stSidebar"]
+        div[role="radiogroup"] > label {
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 4px;
+        }
 
-    section[data-testid="stSidebar"] * {
-        color: #F4F4EE;
-    }
+        h1 {
+            font-size: 3rem !important;
+            line-height: 1.02 !important;
+            letter-spacing: -0.045em !important;
+            font-weight: 800 !important;
+            color: #171717 !important;
+        }
 
-    section[data-testid="stSidebar"] .stRadio label {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
+        h2 {
+            letter-spacing: -0.03em !important;
+            font-weight: 760 !important;
+        }
 
-    section[data-testid="stSidebar"]
-    div[role="radiogroup"] > label {
-        border-radius: 8px;
-        padding: 8px 10px;
-        margin-bottom: 4px;
-    }
+        h3 {
+            letter-spacing: -0.02em !important;
+        }
 
-    /* -----------------------------------------------
-       TYPOGRAPHY
-    ------------------------------------------------ */
+        .eyebrow {
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #70706A;
+            margin-bottom: 0.55rem;
+        }
 
-    h1 {
-        font-size: 3rem !important;
-        line-height: 1.02 !important;
-        letter-spacing: -0.045em !important;
-        font-weight: 800 !important;
-        color: #171717 !important;
-    }
+        .hero-copy {
+            font-size: 1.06rem;
+            line-height: 1.6;
+            color: #5E5E58;
+            max-width: 900px;
+            margin-top: -0.4rem;
+            margin-bottom: 1.4rem;
+        }
 
-    h2 {
-        letter-spacing: -0.03em !important;
-        font-weight: 750 !important;
-    }
+        .metric-card {
+            background: rgba(255,255,255,0.82);
+            border: 1px solid #E1E1D9;
+            border-radius: 16px;
+            padding: 20px 20px 18px 20px;
+            min-height: 140px;
+            box-shadow:
+                0 1px 2px rgba(0,0,0,0.02),
+                0 8px 24px rgba(0,0,0,0.025);
+        }
 
-    h3 {
-        letter-spacing: -0.02em !important;
-    }
+        .metric-label {
+            color: #77776F;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 750;
+            margin-bottom: 12px;
+        }
 
-    /* -----------------------------------------------
-       HERO
-    ------------------------------------------------ */
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 820;
+            letter-spacing: -0.04em;
+            color: #171717;
+            line-height: 1;
+        }
 
-    .eyebrow {
-        font-size: 0.72rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: #686868;
-        margin-bottom: 0.5rem;
-    }
+        .metric-note {
+            color: #6D6D66;
+            font-size: 0.84rem;
+            margin-top: 12px;
+            line-height: 1.4;
+        }
 
-    .hero-copy {
-        font-size: 1.1rem;
-        color: #5A5A5A;
-        max-width: 850px;
-        margin-top: -0.5rem;
-        margin-bottom: 1.6rem;
-    }
+        .metric-negative {
+            color: #B42318;
+        }
 
-    /* -----------------------------------------------
-       CARDS
-    ------------------------------------------------ */
+        .metric-positive {
+            color: #147A42;
+        }
 
-    .metric-card {
-        background: rgba(255,255,255,0.78);
-        border: 1px solid #E2E2DA;
-        border-radius: 16px;
-        padding: 20px 20px 18px 20px;
-        min-height: 140px;
-        box-shadow:
-            0 1px 2px rgba(0,0,0,0.02),
-            0 6px 20px rgba(0,0,0,0.02);
-    }
+        .pill {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: 0.68rem;
+            font-weight: 820;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
 
-    .metric-label {
-        color: #777;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
+        .critical {
+            background: #FFE5E5;
+            color: #A51212;
+        }
 
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-        color: #171717;
-        line-height: 1;
-    }
+        .high {
+            background: #FFF0D2;
+            color: #8D5200;
+        }
 
-    .metric-note {
-        color: #676767;
-        font-size: 0.86rem;
-        margin-top: 12px;
-    }
+        .healthy {
+            background: #DDF7E8;
+            color: #147A42;
+        }
 
-    .metric-negative {
-        color: #B42318;
-    }
+        .active {
+            background: #D9FF38;
+            color: #141414;
+        }
 
-    .metric-positive {
-        color: #147A42;
-    }
+        .ready {
+            background: #EBEBE6;
+            color: #55554F;
+        }
 
-    /* -----------------------------------------------
-       STATUS PILLS
-    ------------------------------------------------ */
+        .action-card {
+            background: #FFFFFF;
+            border: 1px solid #E0E0D9;
+            border-radius: 15px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+        }
 
-    .pill {
-        display: inline-block;
-        border-radius: 999px;
-        padding: 5px 9px;
-        font-size: 0.7rem;
-        font-weight: 800;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-    }
+        .action-rank {
+            color: #8B8B84;
+            font-size: 0.72rem;
+            font-weight: 820;
+            letter-spacing: 0.10em;
+        }
 
-    .critical {
-        background: #FFE5E5;
-        color: #A51212;
-    }
+        .action-title {
+            font-size: 1.08rem;
+            font-weight: 760;
+            margin-top: 5px;
+            color: #1B1B1B;
+        }
 
-    .high {
-        background: #FFF1D6;
-        color: #8D5200;
-    }
+        .action-detail {
+            color: #666660;
+            font-size: 0.88rem;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
 
-    .healthy {
-        background: #DCF8E8;
-        color: #147A42;
-    }
+        .dark-card {
+            background: #171717;
+            color: #F5F5ED;
+            border-radius: 18px;
+            padding: 24px;
+        }
 
-    .active {
-        background: #E5FF71;
-        color: #1A1A1A;
-    }
+        .dark-card .label {
+            color: #B8B8B0;
+            font-size: 0.70rem;
+            text-transform: uppercase;
+            letter-spacing: 0.10em;
+            font-weight: 700;
+        }
 
-    .ready {
-        background: #E8E8E4;
-        color: #444;
-    }
+        .dark-card .big {
+            font-size: 2.25rem;
+            font-weight: 820;
+            letter-spacing: -0.04em;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
 
-    /* -----------------------------------------------
-       ACTION CARD
-    ------------------------------------------------ */
+        .dark-card .accent {
+            color: #D9FF38;
+        }
 
-    .action-card {
-        background: #FFFFFF;
-        border: 1px solid #E1E1DA;
-        border-radius: 15px;
-        padding: 18px 20px;
-        margin-bottom: 12px;
-    }
+        .automation-card {
+            background: #FFFFFF;
+            border: 1px solid #E0E0D9;
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+        }
 
-    .action-rank {
-        color: #8A8A84;
-        font-size: 0.74rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-    }
+        .automation-title {
+            font-weight: 760;
+            font-size: 1rem;
+            color: #171717;
+        }
 
-    .action-title {
-        font-size: 1.12rem;
-        font-weight: 750;
-        margin-top: 4px;
-    }
+        .automation-copy {
+            color: #686861;
+            font-size: 0.88rem;
+            margin-top: 6px;
+            line-height: 1.5;
+        }
 
-    .action-detail {
-        color: #676767;
-        font-size: 0.9rem;
-        margin-top: 7px;
-    }
+        .score-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 10px;
+        }
 
-    /* -----------------------------------------------
-       DARK INTELLIGENCE CARD
-    ------------------------------------------------ */
+        .score-box {
+            background: #FFFFFF;
+            border: 1px solid #E0E0D9;
+            border-radius: 14px;
+            padding: 16px;
+        }
 
-    .dark-card {
-        background: #171717;
-        color: #F5F5ED;
-        border-radius: 18px;
-        padding: 24px;
-        margin-top: 10px;
-    }
+        .score-label {
+            font-size: 0.72rem;
+            color: #77776F;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 700;
+        }
 
-    .dark-card .label {
-        color: #B8B8B0;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-    }
+        .score-value {
+            font-size: 1.55rem;
+            font-weight: 800;
+            margin-top: 5px;
+        }
 
-    .dark-card .big {
-        font-size: 2.3rem;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-        margin-top: 8px;
-    }
+        .stButton > button {
+            border-radius: 10px;
+            font-weight: 700;
+            min-height: 42px;
+            border: 1px solid #1B1B1B;
+        }
 
-    .dark-card .accent {
-        color: #D9FF38;
-    }
+        .stButton > button[kind="primary"] {
+            background: #171717;
+            color: #D9FF38;
+        }
 
-    /* -----------------------------------------------
-       AUTOMATIONS
-    ------------------------------------------------ */
+        #MainMenu {
+            visibility: hidden;
+        }
 
-    .automation-card {
-        background: #FFFFFF;
-        border: 1px solid #E1E1DA;
-        border-radius: 14px;
-        padding: 18px 20px;
-        margin-bottom: 12px;
-    }
+        footer {
+            visibility: hidden;
+        }
 
-    .automation-title {
-        font-weight: 760;
-        font-size: 1rem;
-    }
-
-    .automation-copy {
-        color: #696969;
-        font-size: 0.88rem;
-        margin-top: 5px;
-    }
-
-    /* -----------------------------------------------
-       STREAMLIT BUTTONS
-    ------------------------------------------------ */
-
-    .stButton > button {
-        border-radius: 10px;
-        font-weight: 700;
-        border: 1px solid #171717;
-        min-height: 42px;
-    }
-
-    .stButton > button[kind="primary"] {
-        background: #171717;
-        color: #D9FF38;
-    }
-
-    /* -----------------------------------------------
-       HIDE STREAMLIT CHROME
-    ------------------------------------------------ */
-
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    </style>
-    """,
+        </style>
+        """
+    ),
     unsafe_allow_html=True,
 )
 
@@ -358,7 +346,7 @@ def metric_card(
     note: str,
     note_class: str = "",
 ) -> None:
-    st.markdown(
+    html = dedent(
         f"""
         <div class="metric-card">
             <div class="metric-label">{label}</div>
@@ -367,8 +355,40 @@ def metric_card(
                 {note}
             </div>
         </div>
-        """,
+        """
+    )
+
+    st.markdown(
+        html,
         unsafe_allow_html=True,
+    )
+
+
+def momentum_score(
+    days_in_stage: int,
+    next_meeting_exists: bool,
+    risk_reasons_count: int,
+) -> int:
+    score = 100
+
+    if days_in_stage >= 20:
+        score -= 35
+    elif days_in_stage >= 12:
+        score -= 20
+    elif days_in_stage >= 7:
+        score -= 10
+
+    if not next_meeting_exists:
+        score -= 25
+
+    score -= min(
+        30,
+        risk_reasons_count * 4,
+    )
+
+    return max(
+        0,
+        score,
     )
 
 
@@ -490,7 +510,9 @@ with st.sidebar:
 
     st.write("")
     st.caption("Synthetic dataset")
-    st.write(f"**{len(deals)} opportunities**")
+    st.write(
+        f"**{len(deals)} opportunities**"
+    )
 
     st.caption("Last simulated refresh")
     st.write("**26 Aug • 00:15 IST**")
@@ -516,29 +538,33 @@ if page == "Overview":
     st.title("Good morning. Revenue needs attention.")
 
     st.markdown(
-        f"""
-        <div class="hero-copy">
-            {len(risky)} opportunities require intervention.
-            <strong>{money(forecast.revenue_at_risk)}</strong>
-            of synthetic pipeline is currently exposed.
-            The system is challenging
-            <strong>{money(optimism_gap)}</strong>
-            of rep forecast optimism.
-        </div>
-        """,
+        dedent(
+            f"""
+            <div class="hero-copy">
+                {len(risky)} opportunities require intervention.
+                <strong>{money(forecast.revenue_at_risk)}</strong>
+                of synthetic pipeline is currently exposed.
+                The system is challenging
+                <strong>{money(optimism_gap)}</strong>
+                of rep forecast optimism.
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
-    c1, c2 = st.columns([1, 4])
+    top_action, top_note = st.columns(
+        [1, 4]
+    )
 
-    with c1:
+    with top_action:
         st.button(
             "⚡ Run Revenue Brief",
             type="primary",
             use_container_width=True,
         )
 
-    with c2:
+    with top_note:
         st.caption(
             "Simulates a management refresh across qualification, "
             "forecast quality, deal risk and intervention priority."
@@ -597,10 +623,13 @@ if page == "Overview":
     st.write("")
     st.divider()
 
-    left, right = st.columns([1.45, 0.8])
+    left, right = st.columns(
+        [1.45, 0.8]
+    )
 
     with left:
         st.subheader("Priority Queue")
+
         st.caption(
             "The highest-value actions management should inspect first."
         )
@@ -609,7 +638,7 @@ if page == "Overview":
             risky[:5],
             start=1,
         ):
-            st.markdown(
+            priority_html = dedent(
                 f"""
                 <div class="action-card">
                     <div class="action-rank">
@@ -636,12 +665,16 @@ if page == "Overview":
                         SLA {assessment.sla}
                     </div>
                 </div>
-                """,
+                """
+            )
+
+            st.markdown(
+                priority_html,
                 unsafe_allow_html=True,
             )
 
     with right:
-        st.markdown(
+        revenue_truth_html = dedent(
             f"""
             <div class="dark-card">
                 <div class="label">
@@ -653,8 +686,8 @@ if page == "Overview":
                 </div>
 
                 <p>
-                    of rep-weighted forecast is being
-                    challenged by qualification quality.
+                    of rep-weighted forecast is being challenged
+                    by qualification quality.
                 </p>
 
                 <hr style="
@@ -675,7 +708,11 @@ if page == "Overview":
                     founder ownership or involvement.
                 </p>
             </div>
-            """,
+            """
+        )
+
+        st.markdown(
+            revenue_truth_html,
             unsafe_allow_html=True,
         )
 
@@ -708,13 +745,15 @@ elif page == "Action Queue":
     st.title("Action Queue")
 
     st.markdown(
-        """
-        <div class="hero-copy">
-            A ranked operating queue generated from deal value,
-            inactivity, qualification gaps, stage ageing and
-            forecast risk.
-        </div>
-        """,
+        dedent(
+            """
+            <div class="hero-copy">
+                A ranked operating queue generated from deal value,
+                inactivity, qualification gaps, stage ageing and
+                forecast risk.
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -735,7 +774,8 @@ elif page == "Action Queue":
         display_items = [
             item
             for item in risky
-            if item[1].risk_level == RiskLevel.CRITICAL
+            if item[1].risk_level
+            == RiskLevel.CRITICAL
         ]
 
     elif filter_option == "Founder actions":
@@ -748,26 +788,36 @@ elif page == "Action Queue":
             )
         ]
 
-    elif filter_option in {"AE-01", "AE-02"}:
+    elif filter_option in {
+        "AE-01",
+        "AE-02",
+    }:
         display_items = [
             item
             for item in risky
-            if item[0].owner == filter_option
+            if item[0].owner
+            == filter_option
         ]
 
-    for rank, (deal, assessment) in enumerate(
+    for rank, (
+        deal,
+        assessment,
+    ) in enumerate(
         display_items,
         start=1,
     ):
-        with st.container(border=True):
 
+        with st.container(
+            border=True
+        ):
             top1, top2, top3 = st.columns(
                 [3.2, 1, 1]
             )
 
             with top1:
                 st.markdown(
-                    f"### {rank:02d}. {deal.deal_name}"
+                    f"### {rank:02d}. "
+                    f"{deal.deal_name}"
                 )
 
                 st.markdown(
@@ -855,17 +905,21 @@ elif page == "Pipeline Truth":
         unsafe_allow_html=True,
     )
 
-    st.title("What can we actually believe?")
+    st.title(
+        "What can we actually believe?"
+    )
 
     st.markdown(
-        """
-        <div class="hero-copy">
-            Separate pipeline quantity from pipeline quality.
-            Rep-entered probabilities are compared with
-            qualification-adjusted probabilities before management
-            commits to a forecast.
-        </div>
-        """,
+        dedent(
+            """
+            <div class="hero-copy">
+                Separate pipeline quantity from pipeline quality.
+                Rep-entered probabilities are compared with
+                qualification-adjusted probabilities before
+                management commits to a forecast.
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -874,7 +928,9 @@ elif page == "Pipeline Truth":
     with c1:
         metric_card(
             "Rep Forecast",
-            money(forecast.rep_weighted_forecast),
+            money(
+                forecast.rep_weighted_forecast
+            ),
             "CRM probability × deal value",
         )
 
@@ -904,17 +960,23 @@ elif page == "Pipeline Truth":
 
     mix1.metric(
         "Commit",
-        money(forecast.commit_pipeline),
+        money(
+            forecast.commit_pipeline
+        ),
     )
 
     mix2.metric(
         "Likely",
-        money(forecast.likely_pipeline),
+        money(
+            forecast.likely_pipeline
+        ),
     )
 
     mix3.metric(
         "Upside",
-        money(forecast.upside_pipeline),
+        money(
+            forecast.upside_pipeline
+        ),
     )
 
     mix4.metric(
@@ -924,7 +986,9 @@ elif page == "Pipeline Truth":
 
     st.divider()
 
-    st.subheader("Largest Forecast Disagreements")
+    st.subheader(
+        "Largest Forecast Disagreements"
+    )
 
     disagreement_rows = sorted(
         assessments,
@@ -948,8 +1012,9 @@ elif page == "Pipeline Truth":
             )
         )
 
-        with st.container(border=True):
-
+        with st.container(
+            border=True
+        ):
             c1, c2, c3, c4 = st.columns(
                 [2.5, 1, 1, 1]
             )
@@ -998,18 +1063,38 @@ elif page == "Deal Room":
 
     selected_label = st.selectbox(
         "Select an opportunity",
-        list(deal_lookup.keys()),
+        list(
+            deal_lookup.keys()
+        ),
     )
 
-    selected = deal_lookup[selected_label]
+    selected = deal_lookup[
+        selected_label
+    ]
 
     assessment = assessment_by_id[
         selected.deal_id
     ]
 
+    momentum = momentum_score(
+        selected.days_in_stage,
+        selected.next_meeting_date
+        is not None,
+        len(
+            assessment.risk_reasons
+        ),
+    )
+
+    forecast_confidence = int(
+        assessment.adjusted_probability
+        * 100
+    )
+
     st.write("")
 
-    title1, title2 = st.columns([4, 1])
+    title1, title2 = st.columns(
+        [4, 1]
+    )
 
     with title1:
         st.subheader(
@@ -1026,44 +1111,74 @@ elif page == "Deal Room":
     with title2:
         st.metric(
             "Deal Value",
-            money(selected.amount_usd),
+            money(
+                selected.amount_usd
+            ),
         )
 
-    st.write("")
+    score_html = dedent(
+        f"""
+        <div class="score-row">
+            <div class="score-box">
+                <div class="score-label">
+                    Health
+                </div>
+                <div class="score-value">
+                    {assessment.health_score:.0f}
+                </div>
+            </div>
 
-    c1, c2, c3, c4 = st.columns(4)
+            <div class="score-box">
+                <div class="score-label">
+                    Momentum
+                </div>
+                <div class="score-value">
+                    {momentum}
+                </div>
+            </div>
 
-    c1.metric(
-        "Health",
-        f"{assessment.health_score:.0f}/100",
+            <div class="score-box">
+                <div class="score-label">
+                    Qualification
+                </div>
+                <div class="score-value">
+                    {assessment.qualification_score:.0f}
+                </div>
+            </div>
+
+            <div class="score-box">
+                <div class="score-label">
+                    Forecast Confidence
+                </div>
+                <div class="score-value">
+                    {forecast_confidence}
+                </div>
+            </div>
+        </div>
+        """
     )
 
-    c2.metric(
-        "Qualification",
-        f"{assessment.qualification_score:.0f}/100",
-    )
-
-    c3.metric(
-        "Rep Forecast",
-        f"{selected.probability:.0%}",
-    )
-
-    c4.metric(
-        "OS Forecast",
-        f"{assessment.adjusted_probability:.0%}",
+    st.markdown(
+        score_html,
+        unsafe_allow_html=True,
     )
 
     st.divider()
 
-    left, right = st.columns([1.2, 1])
+    left, right = st.columns(
+        [1.2, 1]
+    )
 
     with left:
-
-        st.subheader("Why the system is concerned")
+        st.subheader(
+            "Why the system is concerned"
+        )
 
         if assessment.risk_reasons:
             for reason in assessment.risk_reasons:
-                st.write(f"● {reason}")
+                st.write(
+                    f"● {reason}"
+                )
         else:
             st.success(
                 "No material risk signals detected."
@@ -1071,14 +1186,18 @@ elif page == "Deal Room":
 
         st.write("")
 
-        st.subheader("Current Deal State")
-
-        st.write(
-            f"**Stage:** {selected.stage.value.title()}"
+        st.subheader(
+            "Current Deal State"
         )
 
         st.write(
-            f"**Owner:** {selected.owner}"
+            f"**Stage:** "
+            f"{selected.stage.value.title()}"
+        )
+
+        st.write(
+            f"**Owner:** "
+            f"{selected.owner}"
         )
 
         st.write(
@@ -1096,18 +1215,28 @@ elif page == "Deal Room":
             f"{selected.primary_objection or 'None recorded'}"
         )
 
-    with right:
+        st.write(
+            f"**Rep probability:** "
+            f"{selected.probability:.0%}"
+        )
 
-        st.markdown(
+        st.write(
+            f"**OS probability:** "
+            f"{assessment.adjusted_probability:.0%}"
+        )
+
+    with right:
+        next_action_html = dedent(
             f"""
             <div class="dark-card">
-
                 <div class="label">
                     Next Best Action
                 </div>
 
-                <div class="big accent"
-                     style="font-size:1.7rem;">
+                <div
+                    class="big accent"
+                    style="font-size:1.7rem;"
+                >
                     {
                         clean_action(
                             assessment.recommended_action.value
@@ -1134,7 +1263,11 @@ elif page == "Deal Room":
                     SLA {assessment.sla}
                 </p>
             </div>
-            """,
+            """
+        )
+
+        st.markdown(
+            next_action_html,
             unsafe_allow_html=True,
         )
 
@@ -1177,17 +1310,21 @@ elif page == "Automations":
         unsafe_allow_html=True,
     )
 
-    st.title("The machine behind the sales team")
+    st.title(
+        "The machine behind the sales team"
+    )
 
     st.markdown(
-        """
-        <div class="hero-copy">
-            Revenue operations should not depend on someone
-            remembering every follow-up, forecast review or
-            stalled deal. These workflows turn operating signals
-            into management actions.
-        </div>
-        """,
+        dedent(
+            """
+            <div class="hero-copy">
+                Revenue operations should not depend on someone
+                remembering every follow-up, forecast review or
+                stalled deal. These workflows turn operating signals
+                into management actions.
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -1195,25 +1332,43 @@ elif page == "Automations":
         (
             "Deal Stall Monitor",
             "ACTIVE",
-            "Detects inactivity, stage ageing and missing next steps.",
-            f"{len(risky)} interventions currently surfaced",
+            (
+                "Detects inactivity, stage ageing "
+                "and missing next steps."
+            ),
+            (
+                f"{len(risky)} interventions "
+                "currently surfaced"
+            ),
         ),
         (
             "Forecast Truth Engine",
             "ACTIVE",
-            "Challenges rep-entered probability using qualification quality.",
-            f"{money(optimism_gap)} optimism currently detected",
+            (
+                "Challenges rep-entered probability "
+                "using qualification quality."
+            ),
+            (
+                f"{money(optimism_gap)} optimism "
+                "currently detected"
+            ),
         ),
         (
             "Follow-up SLA Guard",
             "ACTIVE",
-            "Finds opportunities with no committed next action.",
+            (
+                "Finds opportunities with no "
+                "committed next action."
+            ),
             "Runs after meaningful sales activity",
         ),
         (
             "Founder Escalation Engine",
             "ACTIVE",
-            "Routes high-value, high-risk deals for executive intervention.",
+            (
+                "Routes high-value, high-risk deals "
+                "for executive intervention."
+            ),
             (
                 f"{len(founder_deals)} opportunities "
                 "currently founder-linked"
@@ -1222,8 +1377,14 @@ elif page == "Automations":
         (
             "Expansion Radar",
             "ACTIVE",
-            "Separates existing-account expansion from new-logo pipeline.",
-            f"{money(expansion_pipeline)} expansion pipeline identified",
+            (
+                "Separates existing-account expansion "
+                "from new-logo pipeline."
+            ),
+            (
+                f"{money(expansion_pipeline)} expansion "
+                "pipeline identified"
+            ),
         ),
         (
             "AI Call Intelligence",
@@ -1238,14 +1399,19 @@ elif page == "Automations":
             "AI Follow-up Agent",
             "READY",
             (
-                "Generates contextual deal follow-up from "
+                "Generates contextual follow-up from "
                 "deal state and conversation history."
             ),
             "Human approval before send",
         ),
     ]
 
-    for title, status, description, result in automations:
+    for (
+        title,
+        status,
+        description,
+        result,
+    ) in automations:
 
         status_class = (
             "active"
@@ -1253,7 +1419,7 @@ elif page == "Automations":
             else "ready"
         )
 
-        st.markdown(
+        automation_html = dedent(
             f"""
             <div class="automation-card">
 
@@ -1261,6 +1427,7 @@ elif page == "Automations":
                     display:flex;
                     justify-content:space-between;
                     align-items:center;
+                    gap:16px;
                 ">
                     <div class="automation-title">
                         {title}
@@ -1279,18 +1446,25 @@ elif page == "Automations":
                     margin-top:10px;
                     font-size:0.82rem;
                     font-weight:650;
+                    color:#3E3E3A;
                 ">
                     {result}
                 </div>
 
             </div>
-            """,
+            """
+        )
+
+        st.markdown(
+            automation_html,
             unsafe_allow_html=True,
         )
 
     st.divider()
 
-    st.subheader("Operating Architecture")
+    st.subheader(
+        "Operating Architecture"
+    )
 
     st.code(
         """
@@ -1325,17 +1499,20 @@ elif page == "Revenue Plan":
         unsafe_allow_html=True,
     )
 
-    st.title("What gets us to $3M?")
+    st.title(
+        "What gets us to $3M?"
+    )
 
     st.markdown(
-        """
-        <div class="hero-copy">
-            The next layer of the Revenue OS will model the
-            combination of pipeline creation, conversion,
-            average contract value, sales capacity and
-            expansion required to reach the next revenue stage.
-        </div>
-        """,
+        dedent(
+            """
+            <div class="hero-copy">
+                Model the combination of average contract value,
+                conversion, sales capacity, expansion and pipeline
+                creation required to reach the next revenue stage.
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -1351,24 +1528,162 @@ elif page == "Revenue Plan":
     with c2:
         metric_card(
             "Illustrative Pipeline",
-            money(forecast.raw_pipeline),
+            money(
+                forecast.raw_pipeline
+            ),
             "Current synthetic opportunity portfolio",
         )
 
     with c3:
         metric_card(
             "Expansion Identified",
-            money(expansion_pipeline),
+            money(
+                expansion_pipeline
+            ),
             "Synthetic existing-account opportunity",
         )
 
     st.write("")
 
-    st.info(
-        "Next build: Revenue Digital Twin — change ACV, win rate, "
-        "sales cycle, AE capacity and expansion mix to see what "
-        "operating model reaches $3M."
+    st.subheader(
+        "Revenue Digital Twin"
     )
+
+    sim1, sim2 = st.columns(2)
+
+    with sim1:
+        average_contract_value = st.slider(
+            "Average contract value",
+            min_value=20000,
+            max_value=100000,
+            value=50000,
+            step=5000,
+        )
+
+        win_rate = st.slider(
+            "Qualified win rate",
+            min_value=10,
+            max_value=60,
+            value=30,
+            step=1,
+        )
+
+        qualified_opportunities = st.slider(
+            "Qualified opportunities / year",
+            min_value=20,
+            max_value=200,
+            value=100,
+            step=5,
+        )
+
+    with sim2:
+        expansion_share = st.slider(
+            "Expansion contribution (%)",
+            min_value=0,
+            max_value=40,
+            value=15,
+            step=1,
+        )
+
+        ae_count = st.slider(
+            "AEs",
+            min_value=1,
+            max_value=10,
+            value=4,
+            step=1,
+        )
+
+        capacity_per_ae = st.slider(
+            "Qualified opportunities per AE / year",
+            min_value=10,
+            max_value=50,
+            value=25,
+            step=1,
+        )
+
+    gross_new_revenue = (
+        average_contract_value
+        * qualified_opportunities
+        * (
+            win_rate
+            / 100
+        )
+    )
+
+    expansion_revenue = (
+        gross_new_revenue
+        * (
+            expansion_share
+            / 100
+        )
+    )
+
+    modeled_revenue = (
+        gross_new_revenue
+        + expansion_revenue
+    )
+
+    ae_capacity = (
+        ae_count
+        * capacity_per_ae
+    )
+
+    required_wins = (
+        3000000
+        / average_contract_value
+    )
+
+    required_opportunities = (
+        required_wins
+        / (
+            win_rate
+            / 100
+        )
+        if win_rate > 0
+        else 0
+    )
+
+    st.write("")
+    st.divider()
+
+    o1, o2, o3, o4 = st.columns(4)
+
+    o1.metric(
+        "Modeled Revenue",
+        money(
+            modeled_revenue
+        ),
+    )
+
+    o2.metric(
+        "Required Wins",
+        f"{required_wins:.0f}",
+    )
+
+    o3.metric(
+        "Required Qualified Opps",
+        f"{required_opportunities:.0f}",
+    )
+
+    o4.metric(
+        "AE Capacity",
+        f"{ae_capacity}",
+    )
+
+    if modeled_revenue >= 3000000:
+        st.success(
+            "This operating model clears the $3M revenue ambition."
+        )
+    else:
+        shortfall = (
+            3000000
+            - modeled_revenue
+        )
+
+        st.warning(
+            f"This operating model is short by "
+            f"{money(shortfall)}."
+        )
 
 
 # ==========================================================
@@ -1382,3 +1697,4 @@ st.caption(
     "THUNDERCLAP REVENUE OS • Independent application prototype • "
     "All CRM-level data is synthetic."
 )
+  
