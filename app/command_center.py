@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from datetime import date
-from textwrap import dedent
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import streamlit as st
 
+from data.synthetic_activity import (
+    ActivityType,
+    RevenueActivity,
+    SignalType,
+    activities_for_deal,
+    load_synthetic_activity,
+    recent_activity,
+)
 from data.synthetic_pipeline import load_synthetic_pipeline
 from engines.deal_risk_engine import (
     RiskLevel,
@@ -15,13 +22,14 @@ from engines.forecast_engine import build_forecast
 from models.deal import Deal, DealSource
 
 
+# ==========================================================
+# CONFIG
+# ==========================================================
+
 TODAY = date(2026, 8, 26)
 TARGET_REVENUE = 750000
+LONG_TERM_REVENUE_TARGET = 3000000
 
-
-# ==========================================================
-# PAGE CONFIG
-# ==========================================================
 
 st.set_page_config(
     page_title="ThunderClap Revenue OS",
@@ -36,284 +44,102 @@ st.set_page_config(
 # ==========================================================
 
 st.markdown(
-    dedent(
-        """
-        <style>
+    """
+<style>
 
-        .stApp {
-            background:
-                radial-gradient(
-                    circle at 82% -10%,
-                    rgba(216,255,56,0.10),
-                    transparent 28%
-                ),
-                #F7F7F2;
-            color: #171717;
-        }
+.stApp {
+    background:
+        radial-gradient(
+            circle at 82% -10%,
+            rgba(217,255,56,0.08),
+            transparent 28%
+        ),
+        #F7F7F2;
+    color: #171717;
+}
 
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 5rem;
-            max-width: 1450px;
-        }
+.block-container {
+    padding-top: 2.2rem;
+    padding-bottom: 5rem;
+    max-width: 1450px;
+}
 
-        section[data-testid="stSidebar"] {
-            background: #111111;
-            border-right: 1px solid #282828;
-        }
+section[data-testid="stSidebar"] {
+    background: #111111;
+    border-right: 1px solid #282828;
+}
 
-        section[data-testid="stSidebar"] * {
-            color: #F6F6EF;
-        }
+section[data-testid="stSidebar"] * {
+    color: #F6F6EF;
+}
 
-        section[data-testid="stSidebar"]
-        div[role="radiogroup"] > label {
-            border-radius: 8px;
-            padding: 8px 10px;
-            margin-bottom: 4px;
-        }
+section[data-testid="stSidebar"]
+div[role="radiogroup"] > label {
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 3px;
+}
 
-        h1 {
-            font-size: 3rem !important;
-            line-height: 1.02 !important;
-            letter-spacing: -0.045em !important;
-            font-weight: 800 !important;
-            color: #171717 !important;
-        }
+h1 {
+    font-size: 3rem !important;
+    line-height: 1.02 !important;
+    letter-spacing: -0.045em !important;
+    font-weight: 800 !important;
+    color: #171717 !important;
+}
 
-        h2 {
-            letter-spacing: -0.03em !important;
-            font-weight: 760 !important;
-        }
+h2 {
+    letter-spacing: -0.03em !important;
+    font-weight: 760 !important;
+}
 
-        h3 {
-            letter-spacing: -0.02em !important;
-        }
+h3 {
+    letter-spacing: -0.02em !important;
+}
 
-        .eyebrow {
-            font-size: 0.72rem;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            font-weight: 700;
-            color: #70706A;
-            margin-bottom: 0.55rem;
-        }
+div[data-testid="stMetric"] {
+    background: rgba(255,255,255,0.78);
+    border: 1px solid #E0E0D8;
+    padding: 18px;
+    border-radius: 14px;
+}
 
-        .hero-copy {
-            font-size: 1.06rem;
-            line-height: 1.6;
-            color: #5E5E58;
-            max-width: 900px;
-            margin-top: -0.4rem;
-            margin-bottom: 1.4rem;
-        }
+div[data-testid="stMetricLabel"] {
+    font-weight: 650;
+}
 
-        .metric-card {
-            background: rgba(255,255,255,0.82);
-            border: 1px solid #E1E1D9;
-            border-radius: 16px;
-            padding: 20px 20px 18px 20px;
-            min-height: 140px;
-            box-shadow:
-                0 1px 2px rgba(0,0,0,0.02),
-                0 8px 24px rgba(0,0,0,0.025);
-        }
+.stButton > button {
+    border-radius: 10px;
+    font-weight: 700;
+    border: 1px solid #191919;
+    min-height: 42px;
+}
 
-        .metric-label {
-            color: #77776F;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 750;
-            margin-bottom: 12px;
-        }
+.stButton > button[kind="primary"] {
+    background: #171717;
+    color: #D9FF38;
+}
 
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 820;
-            letter-spacing: -0.04em;
-            color: #171717;
-            line-height: 1;
-        }
+div[data-testid="stExpander"] {
+    background: rgba(255,255,255,0.64);
+    border: 1px solid #E0E0D8;
+    border-radius: 12px;
+}
 
-        .metric-note {
-            color: #6D6D66;
-            font-size: 0.84rem;
-            margin-top: 12px;
-            line-height: 1.4;
-        }
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
 
-        .metric-negative {
-            color: #B42318;
-        }
+#MainMenu {
+    visibility: hidden;
+}
 
-        .metric-positive {
-            color: #147A42;
-        }
+footer {
+    visibility: hidden;
+}
 
-        .pill {
-            display: inline-block;
-            border-radius: 999px;
-            padding: 5px 9px;
-            font-size: 0.68rem;
-            font-weight: 820;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .critical {
-            background: #FFE5E5;
-            color: #A51212;
-        }
-
-        .high {
-            background: #FFF0D2;
-            color: #8D5200;
-        }
-
-        .healthy {
-            background: #DDF7E8;
-            color: #147A42;
-        }
-
-        .active {
-            background: #D9FF38;
-            color: #141414;
-        }
-
-        .ready {
-            background: #EBEBE6;
-            color: #55554F;
-        }
-
-        .action-card {
-            background: #FFFFFF;
-            border: 1px solid #E0E0D9;
-            border-radius: 15px;
-            padding: 18px 20px;
-            margin-bottom: 12px;
-        }
-
-        .action-rank {
-            color: #8B8B84;
-            font-size: 0.72rem;
-            font-weight: 820;
-            letter-spacing: 0.10em;
-        }
-
-        .action-title {
-            font-size: 1.08rem;
-            font-weight: 760;
-            margin-top: 5px;
-            color: #1B1B1B;
-        }
-
-        .action-detail {
-            color: #666660;
-            font-size: 0.88rem;
-            margin-top: 8px;
-            line-height: 1.5;
-        }
-
-        .dark-card {
-            background: #171717;
-            color: #F5F5ED;
-            border-radius: 18px;
-            padding: 24px;
-        }
-
-        .dark-card .label {
-            color: #B8B8B0;
-            font-size: 0.70rem;
-            text-transform: uppercase;
-            letter-spacing: 0.10em;
-            font-weight: 700;
-        }
-
-        .dark-card .big {
-            font-size: 2.25rem;
-            font-weight: 820;
-            letter-spacing: -0.04em;
-            margin-top: 8px;
-            margin-bottom: 8px;
-        }
-
-        .dark-card .accent {
-            color: #D9FF38;
-        }
-
-        .automation-card {
-            background: #FFFFFF;
-            border: 1px solid #E0E0D9;
-            border-radius: 14px;
-            padding: 18px 20px;
-            margin-bottom: 12px;
-        }
-
-        .automation-title {
-            font-weight: 760;
-            font-size: 1rem;
-            color: #171717;
-        }
-
-        .automation-copy {
-            color: #686861;
-            font-size: 0.88rem;
-            margin-top: 6px;
-            line-height: 1.5;
-        }
-
-        .score-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-top: 10px;
-        }
-
-        .score-box {
-            background: #FFFFFF;
-            border: 1px solid #E0E0D9;
-            border-radius: 14px;
-            padding: 16px;
-        }
-
-        .score-label {
-            font-size: 0.72rem;
-            color: #77776F;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            font-weight: 700;
-        }
-
-        .score-value {
-            font-size: 1.55rem;
-            font-weight: 800;
-            margin-top: 5px;
-        }
-
-        .stButton > button {
-            border-radius: 10px;
-            font-weight: 700;
-            min-height: 42px;
-            border: 1px solid #1B1B1B;
-        }
-
-        .stButton > button[kind="primary"] {
-            background: #171717;
-            color: #D9FF38;
-        }
-
-        #MainMenu {
-            visibility: hidden;
-        }
-
-        footer {
-            visibility: hidden;
-        }
-
-        </style>
-        """
-    ),
+</style>
+""",
     unsafe_allow_html=True,
 )
 
@@ -326,64 +152,64 @@ def money(value: float) -> str:
     return f"${value:,.0f}"
 
 
-def clean_action(value: str) -> str:
+def clean_enum(value: str) -> str:
     return value.replace("_", " ").title()
 
 
-def risk_pill(risk: RiskLevel) -> str:
-    if risk == RiskLevel.CRITICAL:
-        return '<span class="pill critical">Critical</span>'
+def signal_icon(signal: SignalType) -> str:
+    if signal == SignalType.POSITIVE:
+        return "🟢"
 
-    if risk == RiskLevel.HIGH:
-        return '<span class="pill high">High</span>'
+    if signal == SignalType.RISK:
+        return "🔴"
 
-    return '<span class="pill healthy">Healthy</span>'
+    return "⚪"
 
 
-def metric_card(
-    label: str,
-    value: str,
-    note: str,
-    note_class: str = "",
-) -> None:
-    html = dedent(
-        f"""
-        <div class="metric-card">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-note {note_class}">
-                {note}
-            </div>
-        </div>
-        """
+def activity_icon(activity_type: ActivityType) -> str:
+    mapping = {
+        ActivityType.EMAIL_INBOUND: "📥",
+        ActivityType.EMAIL_OUTBOUND: "📤",
+        ActivityType.MEETING: "🎙️",
+        ActivityType.CRM_UPDATE: "🗂️",
+        ActivityType.AUTOMATION: "⚡",
+    }
+
+    return mapping.get(
+        activity_type,
+        "•",
     )
 
-    st.markdown(
-        html,
-        unsafe_allow_html=True,
-    )
+
+def risk_label(risk_level: RiskLevel) -> str:
+    if risk_level == RiskLevel.CRITICAL:
+        return "🔴 CRITICAL"
+
+    if risk_level == RiskLevel.HIGH:
+        return "🟠 HIGH"
+
+    return "🟢 HEALTHY"
 
 
 def momentum_score(
-    days_in_stage: int,
-    next_meeting_exists: bool,
-    risk_reasons_count: int,
+    deal: Deal,
+    risk_reason_count: int,
 ) -> int:
     score = 100
 
-    if days_in_stage >= 20:
+    if deal.days_in_stage >= 20:
         score -= 35
-    elif days_in_stage >= 12:
+    elif deal.days_in_stage >= 12:
         score -= 20
-    elif days_in_stage >= 7:
+    elif deal.days_in_stage >= 7:
         score -= 10
 
-    if not next_meeting_exists:
+    if deal.next_meeting_date is None:
         score -= 25
 
     score -= min(
         30,
-        risk_reasons_count * 4,
+        risk_reason_count * 4,
     )
 
     return max(
@@ -392,11 +218,87 @@ def momentum_score(
     )
 
 
+def render_page_intro(
+    eyebrow: str,
+    title: str,
+    description: str,
+) -> None:
+    st.caption(
+        eyebrow.upper()
+    )
+
+    st.title(
+        title
+    )
+
+    st.write(
+        description
+    )
+
+    st.write("")
+
+
+def render_activity(
+    activity: RevenueActivity,
+    show_deal: bool = True,
+) -> None:
+
+    title = (
+        f"{activity_icon(activity.activity_type)} "
+        f"{activity.title}"
+    )
+
+    with st.container(
+        border=True
+    ):
+        top1, top2 = st.columns(
+            [4, 1]
+        )
+
+        with top1:
+            st.markdown(
+                f"**{title}**"
+            )
+
+        with top2:
+            st.caption(
+                activity.occurred_at.strftime(
+                    "%d Aug • %H:%M"
+                )
+            )
+
+        if show_deal:
+            st.caption(
+                f"Deal: {activity.deal_id}"
+            )
+
+        st.write(
+            f"{signal_icon(activity.signal_type)} "
+            f"{activity.summary}"
+        )
+
+        if activity.extracted_signals:
+            with st.expander(
+                "Signals extracted"
+            ):
+                for signal in activity.extracted_signals:
+                    st.write(
+                        f"• {signal}"
+                    )
+
+        if activity.recommended_action:
+            st.info(
+                "Recommended action: "
+                + activity.recommended_action
+            )
+
+
 # ==========================================================
-# LOAD INTELLIGENCE
+# LOAD DATA + ENGINES
 # ==========================================================
 
 deals = load_synthetic_pipeline()
+activities = load_synthetic_activity()
 
 forecast = build_forecast(
     deals,
@@ -420,14 +322,24 @@ assessment_by_id = {
     for deal, assessment in assessments
 }
 
+deal_by_id = {
+    deal.deal_id: deal
+    for deal in deals
+}
+
+
 optimism_gap = max(
     0.0,
     forecast.rep_weighted_forecast
     - forecast.qualification_adjusted_forecast,
 )
 
+
 risky = [
-    (deal, assessment)
+    (
+        deal,
+        assessment,
+    )
     for deal, assessment in assessments
     if assessment.risk_level
     in {
@@ -438,17 +350,21 @@ risky = [
 
 risky.sort(
     key=lambda item: (
-        item[1].risk_level == RiskLevel.CRITICAL,
+        item[1].risk_level
+        == RiskLevel.CRITICAL,
         item[0].amount_usd,
     ),
     reverse=True,
 )
 
+
 founder_deals = [
     deal
     for deal in deals
-    if deal.founder_involved
-    or deal.owner == "Founder"
+    if (
+        deal.founder_involved
+        or deal.owner == "Founder"
+    )
 ]
 
 founder_pipeline = sum(
@@ -464,10 +380,12 @@ founder_share = (
     else 0
 )
 
+
 expansion_deals = [
     deal
     for deal in deals
-    if deal.source == DealSource.EXISTING_ACCOUNT
+    if deal.source
+    == DealSource.EXISTING_ACCOUNT
 ]
 
 expansion_pipeline = sum(
@@ -476,13 +394,46 @@ expansion_pipeline = sum(
 )
 
 
+inbox_activity = [
+    activity
+    for activity in activities
+    if activity.activity_type
+    in {
+        ActivityType.EMAIL_INBOUND,
+        ActivityType.EMAIL_OUTBOUND,
+    }
+]
+
+
+meeting_activity = [
+    activity
+    for activity in activities
+    if activity.activity_type
+    == ActivityType.MEETING
+]
+
+
+automation_activity = [
+    activity
+    for activity in activities
+    if activity.activity_type
+    == ActivityType.AUTOMATION
+]
+
+
 # ==========================================================
 # SIDEBAR
 # ==========================================================
 
 with st.sidebar:
-    st.markdown("## ⚡ THUNDERCLAP")
-    st.caption("REVENUE OS // APPLICATION BUILD")
+
+    st.markdown(
+        "## ⚡ THUNDERCLAP"
+    )
+
+    st.caption(
+        "REVENUE OS // APPLICATION BUILD"
+    )
 
     st.write("")
 
@@ -493,31 +444,53 @@ with st.sidebar:
             "Action Queue",
             "Pipeline Truth",
             "Deal Room",
+            "Inbox Intelligence",
+            "Meeting Intelligence",
+            "Activity Feed",
             "Automations",
             "Revenue Plan",
+            "Integrations",
         ],
         label_visibility="collapsed",
     )
 
     st.write("")
     st.write("")
-    st.caption("SYSTEM STATUS")
 
-    st.markdown(
-        '<span class="pill active">● Intelligence Active</span>',
-        unsafe_allow_html=True,
+    st.caption(
+        "SYSTEM STATUS"
     )
 
-    st.write("")
-    st.caption("Synthetic dataset")
+    st.success(
+        "● Intelligence Active"
+    )
+
+    st.caption(
+        "Synthetic opportunity dataset"
+    )
+
     st.write(
         f"**{len(deals)} opportunities**"
     )
 
-    st.caption("Last simulated refresh")
-    st.write("**26 Aug • 00:15 IST**")
+    st.caption(
+        "Synthetic activity events"
+    )
+
+    st.write(
+        f"**{len(activities)} events**"
+    )
+
+    st.caption(
+        "Last simulated refresh"
+    )
+
+    st.write(
+        "**26 Aug • 00:15 IST**"
+    )
 
     st.write("")
+
     st.caption(
         "Independent application exercise. "
         "No confidential ThunderClap information."
@@ -530,97 +503,84 @@ with st.sidebar:
 
 if page == "Overview":
 
-    st.markdown(
-        '<div class="eyebrow">Executive Overview</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.title("Good morning. Revenue needs attention.")
-
-    st.markdown(
-        dedent(
-            f"""
-            <div class="hero-copy">
-                {len(risky)} opportunities require intervention.
-                <strong>{money(forecast.revenue_at_risk)}</strong>
-                of synthetic pipeline is currently exposed.
-                The system is challenging
-                <strong>{money(optimism_gap)}</strong>
-                of rep forecast optimism.
-            </div>
-            """
+    render_page_intro(
+        "Executive Overview",
+        "Good morning. Revenue needs attention.",
+        (
+            f"{len(risky)} opportunities require intervention. "
+            f"{money(forecast.revenue_at_risk)} of synthetic pipeline "
+            f"is exposed, while {money(optimism_gap)} of rep-weighted "
+            "forecast is being challenged by qualification evidence."
         ),
-        unsafe_allow_html=True,
     )
 
-    top_action, top_note = st.columns(
+    action_col, copy_col = st.columns(
         [1, 4]
     )
 
-    with top_action:
+    with action_col:
         st.button(
             "⚡ Run Revenue Brief",
             type="primary",
             use_container_width=True,
         )
 
-    with top_note:
+    with copy_col:
         st.caption(
-            "Simulates a management refresh across qualification, "
-            "forecast quality, deal risk and intervention priority."
+            "Re-runs qualification, risk, forecast and "
+            "management intervention logic."
         )
 
     st.write("")
 
-    cols = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-    with cols[0]:
-        metric_card(
-            "Open Pipeline",
-            money(forecast.raw_pipeline),
-            f"{forecast.open_deals} active opportunities",
-        )
+    c1.metric(
+        "Open Pipeline",
+        money(
+            forecast.raw_pipeline
+        ),
+        f"{forecast.open_deals} deals",
+    )
 
-    with cols[1]:
-        metric_card(
-            "Believable Forecast",
-            money(
-                forecast.qualification_adjusted_forecast
-            ),
-            (
-                f"{forecast.forecast_attainment_pct:.1f}% "
-                "of illustrative target"
-            ),
-            "metric-positive",
-        )
+    c2.metric(
+        "Believable Forecast",
+        money(
+            forecast.qualification_adjusted_forecast
+        ),
+        (
+            f"{forecast.forecast_attainment_pct:.1f}% "
+            "of illustrative target"
+        ),
+    )
 
-    with cols[2]:
-        metric_card(
-            "Revenue Exposed",
-            money(forecast.revenue_at_risk),
-            (
-                f"{forecast.high_risk_deals + forecast.critical_risk_deals} "
-                "high / critical deals"
-            ),
-            "metric-negative",
-        )
+    c3.metric(
+        "Revenue Exposed",
+        money(
+            forecast.revenue_at_risk
+        ),
+        (
+            f"{forecast.high_risk_deals + forecast.critical_risk_deals} "
+            "urgent deals"
+        ),
+        delta_color="inverse",
+    )
 
-    with cols[3]:
-        metric_card(
-            "Optimism Gap",
-            money(optimism_gap),
-            "Rep forecast less OS-adjusted forecast",
-            "metric-negative",
-        )
+    c4.metric(
+        "Optimism Gap",
+        money(
+            optimism_gap
+        ),
+        "Rep vs OS",
+        delta_color="inverse",
+    )
 
-    with cols[4]:
-        metric_card(
-            "Coverage",
-            f"{forecast.pipeline_coverage:.2f}x",
-            f"{forecast.forecast_confidence:.0%} forecast confidence",
-        )
+    c5.metric(
+        "Coverage",
+        f"{forecast.pipeline_coverage:.2f}x",
+        f"{forecast.forecast_confidence:.0%} confidence",
+    )
 
-    st.write("")
     st.divider()
 
     left, right = st.columns(
@@ -628,106 +588,124 @@ if page == "Overview":
     )
 
     with left:
-        st.subheader("Priority Queue")
 
-        st.caption(
-            "The highest-value actions management should inspect first."
+        st.subheader(
+            "Priority Queue"
         )
 
-        for rank, (deal, assessment) in enumerate(
+        st.caption(
+            "Highest-value interventions management should inspect first."
+        )
+
+        for rank, (
+            deal,
+            assessment,
+        ) in enumerate(
             risky[:5],
             start=1,
         ):
-            priority_html = dedent(
-                f"""
-                <div class="action-card">
-                    <div class="action-rank">
-                        PRIORITY {rank:02d}
-                    </div>
 
-                    <div class="action-title">
-                        {deal.deal_name}
-                        &nbsp;
-                        {risk_pill(assessment.risk_level)}
-                    </div>
+            with st.container(
+                border=True
+            ):
 
-                    <div class="action-detail">
-                        <strong>{money(deal.amount_usd)}</strong>
-                        &nbsp;•&nbsp;
-                        Rep {deal.probability:.0%}
-                        &nbsp;→&nbsp;
-                        OS {assessment.adjusted_probability:.0%}
-                        &nbsp;•&nbsp;
-                        {clean_action(
-                            assessment.recommended_action.value
-                        )}
-                        &nbsp;•&nbsp;
-                        SLA {assessment.sla}
-                    </div>
-                </div>
-                """
-            )
+                name_col, value_col = st.columns(
+                    [4, 1]
+                )
 
-            st.markdown(
-                priority_html,
-                unsafe_allow_html=True,
-            )
+                with name_col:
+                    st.markdown(
+                        f"### {rank:02d}. {deal.deal_name}"
+                    )
+
+                    st.caption(
+                        risk_label(
+                            assessment.risk_level
+                        )
+                    )
+
+                with value_col:
+                    st.metric(
+                        "Value",
+                        money(
+                            deal.amount_usd
+                        ),
+                    )
+
+                st.write(
+                    f"**Rep:** {deal.probability:.0%} "
+                    f"→ **OS:** {assessment.adjusted_probability:.0%}"
+                )
+
+                st.write(
+                    "**Next action:** "
+                    + clean_enum(
+                        assessment.recommended_action.value
+                    )
+                )
+
+                st.caption(
+                    f"Owner: {assessment.owner} • SLA: {assessment.sla}"
+                )
 
     with right:
-        revenue_truth_html = dedent(
-            f"""
-            <div class="dark-card">
-                <div class="label">
-                    Today's Revenue Truth
-                </div>
 
-                <div class="big">
-                    {money(optimism_gap)}
-                </div>
-
-                <p>
-                    of rep-weighted forecast is being challenged
-                    by qualification quality.
-                </p>
-
-                <hr style="
-                    border:none;
-                    border-top:1px solid #3A3A3A;
-                ">
-
-                <div class="label">
-                    Founder Dependency
-                </div>
-
-                <div class="big accent">
-                    {founder_share:.1f}%
-                </div>
-
-                <p>
-                    of open pipeline currently has
-                    founder ownership or involvement.
-                </p>
-            </div>
-            """
+        st.subheader(
+            "Today's Revenue Truth"
         )
 
-        st.markdown(
-            revenue_truth_html,
-            unsafe_allow_html=True,
+        with st.container(
+            border=True
+        ):
+            st.metric(
+                "Forecast being challenged",
+                money(
+                    optimism_gap
+                ),
+            )
+
+            st.write(
+                "Qualification evidence does not support "
+                "the full rep-weighted forecast."
+            )
+
+            st.divider()
+
+            st.metric(
+                "Founder-dependent pipeline",
+                f"{founder_share:.1f}%",
+            )
+
+            st.caption(
+                money(
+                    founder_pipeline
+                )
+                + " has founder ownership or involvement."
+            )
+
+        st.subheader(
+            "Expansion Radar"
         )
-
-        st.write("")
-
-        st.subheader("Expansion Radar")
 
         st.metric(
             "Existing-account pipeline",
-            money(expansion_pipeline),
+            money(
+                expansion_pipeline
+            ),
+            f"{len(expansion_deals)} opportunities",
         )
 
-        st.caption(
-            f"{len(expansion_deals)} synthetic expansion "
-            "opportunities identified."
+    st.divider()
+
+    st.subheader(
+        "What changed?"
+    )
+
+    for activity in recent_activity(
+        5
+    ):
+        render_activity(
+            activity
         )
 
 
@@ -737,24 +715,13 @@ if page == "Overview":
 
 elif page == "Action Queue":
 
-    st.markdown(
-        '<div class="eyebrow">Revenue Execution</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.title("Action Queue")
-
-    st.markdown(
-        dedent(
-            """
-            <div class="hero-copy">
-                A ranked operating queue generated from deal value,
-                inactivity, qualification gaps, stage ageing and
-                forecast risk.
-            </div>
-            """
+    render_page_intro(
+        "Revenue Execution",
+        "Action Queue",
+        (
+            "A ranked operating queue generated from deal value, "
+            "qualification, inactivity, stage ageing and forecast risk."
         ),
-        unsafe_allow_html=True,
     )
 
     filter_option = st.selectbox(
@@ -771,6 +738,7 @@ elif page == "Action Queue":
     display_items = risky
 
     if filter_option == "Critical only":
+
         display_items = [
             item
             for item in risky
@@ -779,12 +747,14 @@ elif page == "Action Queue":
         ]
 
     elif filter_option == "Founder actions":
+
         display_items = [
             item
             for item in risky
             if (
                 item[0].founder_involved
-                or item[0].owner == "Founder"
+                or item[0].owner
+                == "Founder"
             )
         ]
 
@@ -792,6 +762,7 @@ elif page == "Action Queue":
         "AE-01",
         "AE-02",
     }:
+
         display_items = [
             item
             for item in risky
@@ -810,70 +781,73 @@ elif page == "Action Queue":
         with st.container(
             border=True
         ):
-            top1, top2, top3 = st.columns(
-                [3.2, 1, 1]
+
+            c1, c2, c3 = st.columns(
+                [3, 1, 1]
             )
 
-            with top1:
-                st.markdown(
-                    f"### {rank:02d}. "
-                    f"{deal.deal_name}"
+            with c1:
+                st.subheader(
+                    f"{rank:02d}. {deal.deal_name}"
                 )
 
-                st.markdown(
-                    risk_pill(
+                st.caption(
+                    risk_label(
                         assessment.risk_level
-                    ),
-                    unsafe_allow_html=True,
+                    )
                 )
 
-            with top2:
-                st.metric(
-                    "Value",
-                    money(deal.amount_usd),
-                )
+            c2.metric(
+                "Value",
+                money(
+                    deal.amount_usd
+                ),
+            )
 
-            with top3:
-                st.metric(
-                    "Health",
-                    f"{assessment.health_score:.0f}/100",
-                )
+            c3.metric(
+                "Health",
+                f"{assessment.health_score:.0f}/100",
+            )
 
-            st.write("")
+            q1, q2, q3, q4 = st.columns(
+                4
+            )
 
-            c1, c2, c3, c4 = st.columns(4)
-
-            c1.metric(
+            q1.metric(
                 "Qualification",
                 f"{assessment.qualification_score:.0f}",
             )
 
-            c2.metric(
+            q2.metric(
                 "Rep Probability",
                 f"{deal.probability:.0%}",
             )
 
-            c3.metric(
+            q3.metric(
                 "OS Probability",
                 f"{assessment.adjusted_probability:.0%}",
             )
 
-            c4.metric(
+            q4.metric(
                 "SLA",
                 assessment.sla,
             )
 
             st.write(
-                f"**Why now:** "
-                f"{assessment.primary_risk}"
+                "**Why now:** "
+                + assessment.primary_risk
             )
 
             st.write(
-                f"**Next best action:** "
-                f"{clean_action(assessment.recommended_action.value)}"
+                "**Next best action:** "
+                + clean_enum(
+                    assessment.recommended_action.value
+                )
             )
 
-            b1, b2, b3 = st.columns(3)
+            b1, b2, b3 = st.columns(
+                3
+            )
 
             b1.button(
                 "Open Deal Room",
@@ -900,87 +874,74 @@ elif page == "Action Queue":
 
 elif page == "Pipeline Truth":
 
-    st.markdown(
-        '<div class="eyebrow">Forecast Intelligence</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.title(
-        "What can we actually believe?"
-    )
-
-    st.markdown(
-        dedent(
-            """
-            <div class="hero-copy">
-                Separate pipeline quantity from pipeline quality.
-                Rep-entered probabilities are compared with
-                qualification-adjusted probabilities before
-                management commits to a forecast.
-            </div>
-            """
+    render_page_intro(
+        "Forecast Intelligence",
+        "What can we actually believe?",
+        (
+            "Rep-entered probabilities are compared with "
+            "qualification-adjusted probabilities before "
+            "management commits to a forecast."
         ),
-        unsafe_allow_html=True,
     )
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(
+        3
+    )
 
-    with c1:
-        metric_card(
-            "Rep Forecast",
-            money(
-                forecast.rep_weighted_forecast
-            ),
-            "CRM probability × deal value",
-        )
+    c1.metric(
+        "Rep Forecast",
+        money(
+            forecast.rep_weighted_forecast
+        ),
+    )
 
-    with c2:
-        metric_card(
-            "OS Forecast",
-            money(
-                forecast.qualification_adjusted_forecast
-            ),
-            "Qualification-adjusted management view",
-            "metric-positive",
-        )
+    c2.metric(
+        "OS Forecast",
+        money(
+            forecast.qualification_adjusted_forecast
+        ),
+    )
 
-    with c3:
-        metric_card(
-            "Optimism Gap",
-            money(optimism_gap),
-            "Forecast management should challenge",
-            "metric-negative",
-        )
+    c3.metric(
+        "Optimism Gap",
+        money(
+            optimism_gap
+        ),
+    )
 
     st.write("")
 
-    st.subheader("Forecast Mix")
+    st.subheader(
+        "Forecast Mix"
+    )
 
-    mix1, mix2, mix3, mix4 = st.columns(4)
+    f1, f2, f3, f4 = st.columns(
+        4
+    )
 
-    mix1.metric(
+    f1.metric(
         "Commit",
         money(
             forecast.commit_pipeline
         ),
     )
 
-    mix2.metric(
+    f2.metric(
         "Likely",
         money(
             forecast.likely_pipeline
         ),
     )
 
-    mix3.metric(
+    f3.metric(
         "Upside",
         money(
             forecast.upside_pipeline
         ),
     )
 
-    mix4.metric(
-        "Pipeline Coverage",
+    f4.metric(
+        "Coverage",
         f"{forecast.pipeline_coverage:.2f}x",
     )
 
@@ -1015,27 +976,30 @@ elif page == "Pipeline Truth":
         with st.container(
             border=True
         ):
-            c1, c2, c3, c4 = st.columns(
+
+            d1, d2, d3, d4 = st.columns(
                 [2.5, 1, 1, 1]
             )
 
-            c1.markdown(
+            d1.markdown(
                 f"**{deal.deal_name}**"
             )
 
-            c2.metric(
+            d2.metric(
                 "Rep",
                 f"{deal.probability:.0%}",
             )
 
-            c3.metric(
+            d3.metric(
                 "OS",
                 f"{assessment.adjusted_probability:.0%}",
             )
 
-            c4.metric(
+            d4.metric(
                 "Forecast Gap",
-                money(value_gap),
+                money(
+                    value_gap
+                ),
             )
 
 
@@ -1045,14 +1009,19 @@ elif page == "Pipeline Truth":
 
 elif page == "Deal Room":
 
-    st.markdown(
-        '<div class="eyebrow">Deal Intelligence</div>',
-        unsafe_allow_html=True,
+    render_page_intro(
+        "Deal Intelligence",
+        "Deal Room",
+        (
+            "One workspace for deal state, risk, communications "
+            "and next-best-action intelligence."
+        ),
     )
 
-    st.title("Deal Room")
-
-    deal_lookup: Dict[str, Deal] = {
+    deal_lookup: Dict[
+        str,
+        Deal,
+    ] = {
         (
             f"{deal.deal_id} — "
             f"{deal.deal_name} — "
@@ -1062,7 +1031,7 @@ elif page == "Deal Room":
     }
 
     selected_label = st.selectbox(
-        "Select an opportunity",
+        "Select opportunity",
         list(
             deal_lookup.keys()
         ),
@@ -1076,115 +1045,88 @@ elif page == "Deal Room":
         selected.deal_id
     ]
 
+    deal_activity = activities_for_deal(
+        selected.deal_id
+    )
+
     momentum = momentum_score(
-        selected.days_in_stage,
-        selected.next_meeting_date
-        is not None,
+        selected,
         len(
             assessment.risk_reasons
         ),
     )
 
-    forecast_confidence = int(
-        assessment.adjusted_probability
-        * 100
-    )
-
     st.write("")
 
-    title1, title2 = st.columns(
+    title_col, value_col = st.columns(
         [4, 1]
     )
 
-    with title1:
+    with title_col:
         st.subheader(
             selected.deal_name
         )
 
-        st.markdown(
-            risk_pill(
+        st.caption(
+            risk_label(
                 assessment.risk_level
-            ),
-            unsafe_allow_html=True,
+            )
         )
 
-    with title2:
-        st.metric(
-            "Deal Value",
-            money(
-                selected.amount_usd
-            ),
-        )
-
-    score_html = dedent(
-        f"""
-        <div class="score-row">
-            <div class="score-box">
-                <div class="score-label">
-                    Health
-                </div>
-                <div class="score-value">
-                    {assessment.health_score:.0f}
-                </div>
-            </div>
-
-            <div class="score-box">
-                <div class="score-label">
-                    Momentum
-                </div>
-                <div class="score-value">
-                    {momentum}
-                </div>
-            </div>
-
-            <div class="score-box">
-                <div class="score-label">
-                    Qualification
-                </div>
-                <div class="score-value">
-                    {assessment.qualification_score:.0f}
-                </div>
-            </div>
-
-            <div class="score-box">
-                <div class="score-label">
-                    Forecast Confidence
-                </div>
-                <div class="score-value">
-                    {forecast_confidence}
-                </div>
-            </div>
-        </div>
-        """
+    value_col.metric(
+        "Deal Value",
+        money(
+            selected.amount_usd
+        ),
     )
 
-    st.markdown(
-        score_html,
-        unsafe_allow_html=True,
+    s1, s2, s3, s4 = st.columns(
+        4
+    )
+
+    s1.metric(
+        "Health",
+        f"{assessment.health_score:.0f}",
+    )
+
+    s2.metric(
+        "Momentum",
+        f"{momentum}",
+    )
+
+    s3.metric(
+        "Qualification",
+        f"{assessment.qualification_score:.0f}",
+    )
+
+    s4.metric(
+        "Forecast Confidence",
+        f"{assessment.adjusted_probability:.0%}",
     )
 
     st.divider()
 
     left, right = st.columns(
-        [1.2, 1]
+        [1.25, 1]
     )
 
     with left:
+
         st.subheader(
             "Why the system is concerned"
         )
 
         if assessment.risk_reasons:
+
             for reason in assessment.risk_reasons:
                 st.write(
-                    f"● {reason}"
+                    f"• {reason}"
                 )
+
         else:
             st.success(
                 "No material risk signals detected."
             )
-
-        st.write("")
 
         st.subheader(
             "Current Deal State"
@@ -1192,7 +1134,7 @@ elif page == "Deal Room":
 
         st.write(
             f"**Stage:** "
-            f"{selected.stage.value.title()}"
+            f"{clean_enum(selected.stage.value)}"
         )
 
         st.write(
@@ -1215,65 +1157,40 @@ elif page == "Deal Room":
             f"{selected.primary_objection or 'None recorded'}"
         )
 
-        st.write(
-            f"**Rep probability:** "
-            f"{selected.probability:.0%}"
-        )
-
-        st.write(
-            f"**OS probability:** "
-            f"{assessment.adjusted_probability:.0%}"
-        )
-
     with right:
-        next_action_html = dedent(
-            f"""
-            <div class="dark-card">
-                <div class="label">
-                    Next Best Action
-                </div>
 
-                <div
-                    class="big accent"
-                    style="font-size:1.7rem;"
-                >
-                    {
-                        clean_action(
-                            assessment.recommended_action.value
-                        )
-                    }
-                </div>
-
-                <p>
-                    {assessment.action_reason}
-                </p>
-
-                <hr style="
-                    border:none;
-                    border-top:1px solid #3A3A3A;
-                ">
-
-                <div class="label">
-                    Owner
-                </div>
-
-                <p>
-                    {assessment.owner}
-                    &nbsp; • &nbsp;
-                    SLA {assessment.sla}
-                </p>
-            </div>
-            """
+        st.subheader(
+            "Next Best Action"
         )
 
-        st.markdown(
-            next_action_html,
-            unsafe_allow_html=True,
+        with st.container(
+            border=True
+        ):
+
+            st.markdown(
+                "### "
+                + clean_enum(
+                    assessment.recommended_action.value
+                )
+            )
+
+            st.write(
+                assessment.action_reason
+            )
+
+            st.divider()
+
+            st.write(
+                f"**Owner:** {assessment.owner}"
+            )
+
+            st.write(
+                f"**SLA:** {assessment.sla}"
+            )
+
+        a1, a2 = st.columns(
+            2
         )
-
-        st.write("")
-
-        a1, a2 = st.columns(2)
 
         a1.button(
             "✨ Analyse with AI",
@@ -1286,7 +1203,9 @@ elif page == "Deal Room":
             use_container_width=True,
         )
 
-        a3, a4 = st.columns(2)
+        a3, a4 = st.columns(
+            2
+        )
 
         a3.button(
             "Draft Follow-up",
@@ -1298,6 +1217,575 @@ elif page == "Deal Room":
             use_container_width=True,
         )
 
+    st.divider()
+
+    st.subheader(
+        "Deal Activity"
+    )
+
+    if not deal_activity:
+
+        st.info(
+            "No synthetic activity available for this deal."
+        )
+
+    else:
+
+        for activity in deal_activity:
+            render_activity(
+                activity,
+                show_deal=False,
+            )
+
+
+# ==========================================================
+# INBOX INTELLIGENCE
+# ==========================================================
+
+elif page == "Inbox Intelligence":
+
+    render_page_intro(
+        "Communication Intelligence",
+        "Inbox Intelligence",
+        (
+            "Turn customer email into revenue signals instead of "
+            "letting important commercial context disappear inside inboxes."
+        ),
+    )
+
+    inbound = [
+        item
+        for item in inbox_activity
+        if item.activity_type
+        == ActivityType.EMAIL_INBOUND
+    ]
+
+    risk_emails = [
+        item
+        for item in inbound
+        if item.signal_type
+        == SignalType.RISK
+    ]
+
+    positive_emails = [
+        item
+        for item in inbound
+        if item.signal_type
+        == SignalType.POSITIVE
+    ]
+
+    associated_pipeline = sum(
+        deal_by_id[item.deal_id].amount_usd
+        for item in inbound
+        if item.deal_id
+        in deal_by_id
+    )
+
+    c1, c2, c3, c4 = st.columns(
+        4
+    )
+
+    c1.metric(
+        "Deal-related conversations",
+        len(
+            inbox_activity
+        ),
+    )
+
+    c2.metric(
+        "Inbound requiring attention",
+        len(
+            risk_emails
+        ),
+    )
+
+    c3.metric(
+        "Positive buying signals",
+        len(
+            positive_emails
+        ),
+    )
+
+    c4.metric(
+        "Associated pipeline",
+        money(
+            associated_pipeline
+        ),
+    )
+
+    st.divider()
+
+    filter_signal = st.selectbox(
+        "Signal filter",
+        [
+            "All",
+            "Risk",
+            "Positive",
+            "Neutral",
+        ],
+    )
+
+    filtered_inbox = inbox_activity
+
+    if filter_signal == "Risk":
+
+        filtered_inbox = [
+            activity
+            for activity in inbox_activity
+            if activity.signal_type
+            == SignalType.RISK
+        ]
+
+    elif filter_signal == "Positive":
+
+        filtered_inbox = [
+            activity
+            for activity in inbox_activity
+            if activity.signal_type
+            == SignalType.POSITIVE
+        ]
+
+    elif filter_signal == "Neutral":
+
+        filtered_inbox = [
+            activity
+            for activity in inbox_activity
+            if activity.signal_type
+            == SignalType.NEUTRAL
+        ]
+
+    for activity in sorted(
+        filtered_inbox,
+        key=lambda item: item.occurred_at,
+        reverse=True,
+    ):
+
+        deal = deal_by_id.get(
+            activity.deal_id
+        )
+
+        with st.container(
+            border=True
+        ):
+
+            c1, c2 = st.columns(
+                [4, 1]
+            )
+
+            with c1:
+                st.subheader(
+                    activity.title
+                )
+
+                st.caption(
+                    f"{signal_icon(activity.signal_type)} "
+                    f"{clean_enum(activity.signal_type.value)} signal"
+                )
+
+            with c2:
+                if deal:
+                    st.metric(
+                        "Deal Value",
+                        money(
+                            deal.amount_usd
+                        ),
+                    )
+
+            if activity.sender:
+                st.write(
+                    f"**From:** {activity.sender}"
+                )
+
+            if activity.recipient:
+                st.write(
+                    f"**To:** {activity.recipient}"
+                )
+
+            st.write(
+                activity.summary
+            )
+
+            if activity.extracted_signals:
+
+                st.markdown(
+                    "**Commercial signals**"
+                )
+
+                for signal in activity.extracted_signals:
+                    st.write(
+                        f"• {signal}"
+                    )
+
+            if activity.recommended_action:
+                st.info(
+                    activity.recommended_action
+                )
+
+            b1, b2, b3 = st.columns(
+                3
+            )
+
+            b1.button(
+                "Summarise Thread",
+                key=(
+                    "summarise_"
+                    + activity.activity_id
+                ),
+                use_container_width=True,
+            )
+
+            b2.button(
+                "Draft Follow-up",
+                key=(
+                    "draft_email_"
+                    + activity.activity_id
+                ),
+                use_container_width=True,
+            )
+
+            b3.button(
+                "Update Deal",
+                key=(
+                    "update_email_"
+                    + activity.activity_id
+                ),
+                use_container_width=True,
+            )
+
+
+# ==========================================================
+# MEETING INTELLIGENCE
+# ==========================================================
+
+elif page == "Meeting Intelligence":
+
+    render_page_intro(
+        "Conversation Intelligence",
+        "Meeting Intelligence",
+        (
+            "Transform meeting transcripts into qualification, "
+            "stakeholder, risk and next-action intelligence."
+        ),
+    )
+
+    st.caption(
+        "Synthetic transcript workflow — no real customer conversations."
+    )
+
+    meeting_lookup = {
+        (
+            f"{activity.deal_id} — "
+            f"{activity.title}"
+        ): activity
+        for activity in meeting_activity
+    }
+
+    if not meeting_lookup:
+
+        st.info(
+            "No meeting activity available."
+        )
+
+    else:
+
+        selected_meeting_label = st.selectbox(
+            "Choose meeting",
+            list(
+                meeting_lookup.keys()
+            ),
+        )
+
+        meeting = meeting_lookup[
+            selected_meeting_label
+        ]
+
+        deal = deal_by_id.get(
+            meeting.deal_id
+        )
+
+        assessment = (
+            assessment_by_id.get(
+                meeting.deal_id
+            )
+        )
+
+        st.write("")
+
+        title_col, signal_col = st.columns(
+            [4, 1]
+        )
+
+        with title_col:
+            st.subheader(
+                meeting.title
+            )
+
+            st.caption(
+                meeting.occurred_at.strftime(
+                    "%25 Aug 2026 • %H:%M"
+                )
+                if False
+                else meeting.occurred_at.strftime(
+                    "%d Aug 2026 • %H:%M"
+                )
+            )
+
+        with signal_col:
+            st.metric(
+                "Signal",
+                clean_enum(
+                    meeting.signal_type.value
+                ),
+            )
+
+        if deal and assessment:
+
+            c1, c2, c3, c4 = st.columns(
+                4
+            )
+
+            c1.metric(
+                "Deal Value",
+                money(
+                    deal.amount_usd
+                ),
+            )
+
+            c2.metric(
+                "Qualification",
+                f"{assessment.qualification_score:.0f}",
+            )
+
+            c3.metric(
+                "Rep Probability",
+                f"{deal.probability:.0%}",
+            )
+
+            c4.metric(
+                "OS Probability",
+                f"{assessment.adjusted_probability:.0%}",
+            )
+
+        st.divider()
+
+        left, right = st.columns(
+            [1.15, 1]
+        )
+
+        with left:
+
+            st.subheader(
+                "Transcript"
+            )
+
+            if meeting.transcript:
+
+                st.text_area(
+                    "Synthetic transcript",
+                    value=meeting.transcript,
+                    height=220,
+                    disabled=True,
+                    label_visibility="collapsed",
+                )
+
+            else:
+
+                st.info(
+                    "No transcript stored."
+                )
+
+        with right:
+
+            st.subheader(
+                "Signals Extracted"
+            )
+
+            if meeting.extracted_signals:
+
+                for signal in meeting.extracted_signals:
+                    st.write(
+                        f"• {signal}"
+                    )
+
+            if meeting.recommended_action:
+
+                st.info(
+                    "Next action: "
+                    + meeting.recommended_action
+                )
+
+            st.write("")
+
+            b1, b2 = st.columns(
+                2
+            )
+
+            b1.button(
+                "Process Transcript",
+                type="primary",
+                use_container_width=True,
+            )
+
+            b2.button(
+                "Update CRM",
+                use_container_width=True,
+            )
+
+            b3, b4 = st.columns(
+                2
+            )
+
+            b3.button(
+                "Draft Recap",
+                use_container_width=True,
+            )
+
+            b4.button(
+                "Create Tasks",
+                use_container_width=True,
+            )
+
+        st.divider()
+
+        st.subheader(
+            "Revenue OS Impact"
+        )
+
+        if assessment and deal:
+
+            impact1, impact2, impact3 = st.columns(
+                3
+            )
+
+            impact1.metric(
+                "Current Qualification",
+                f"{assessment.qualification_score:.0f}/100",
+            )
+
+            impact2.metric(
+                "Current OS Forecast",
+                f"{assessment.adjusted_probability:.0%}",
+            )
+
+            impact3.metric(
+                "Current Risk",
+                clean_enum(
+                    assessment.risk_level.value
+                ),
+            )
+
+        st.caption(
+            "In a live implementation, extracted meeting signals "
+            "would update CRM fields and automatically re-run the "
+            "qualification, risk and forecast engines."
+        )
+
+
+# ==========================================================
+# ACTIVITY FEED
+# ==========================================================
+
+elif page == "Activity Feed":
+
+    render_page_intro(
+        "Revenue Event Stream",
+        "Activity Feed",
+        (
+            "A single operating timeline showing communication, "
+            "CRM updates and machine-generated actions."
+        ),
+    )
+
+    c1, c2, c3 = st.columns(
+        3
+    )
+
+    c1.metric(
+        "Total simulated events",
+        len(
+            activities
+        ),
+    )
+
+    c2.metric(
+        "Automation events",
+        len(
+            automation_activity
+        ),
+    )
+
+    c3.metric(
+        "Deals represented",
+        len(
+            set(
+                activity.deal_id
+                for activity in activities
+            )
+        ),
+    )
+
+    activity_filter = st.selectbox(
+        "Activity type",
+        [
+            "All",
+            "Email",
+            "Meeting",
+            "Automation",
+            "CRM Update",
+        ],
+    )
+
+    display_activity = activities
+
+    if activity_filter == "Email":
+
+        display_activity = [
+            activity
+            for activity in activities
+            if activity.activity_type
+            in {
+                ActivityType.EMAIL_INBOUND,
+                ActivityType.EMAIL_OUTBOUND,
+            }
+        ]
+
+    elif activity_filter == "Meeting":
+
+        display_activity = [
+            activity
+            for activity in activities
+            if activity.activity_type
+            == ActivityType.MEETING
+        ]
+
+    elif activity_filter == "Automation":
+
+        display_activity = [
+            activity
+            for activity in activities
+            if activity.activity_type
+            == ActivityType.AUTOMATION
+        ]
+
+    elif activity_filter == "CRM Update":
+
+        display_activity = [
+            activity
+            for activity in activities
+            if activity.activity_type
+            == ActivityType.CRM_UPDATE
+        ]
+
+    for activity in sorted(
+        display_activity,
+        key=lambda item: item.occurred_at,
+        reverse=True,
+    ):
+
+        render_activity(
+            activity
+        )
+
 
 # ==========================================================
 # AUTOMATIONS
@@ -1305,160 +1793,133 @@ elif page == "Deal Room":
 
 elif page == "Automations":
 
-    st.markdown(
-        '<div class="eyebrow">Revenue Automation</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.title(
-        "The machine behind the sales team"
-    )
-
-    st.markdown(
-        dedent(
-            """
-            <div class="hero-copy">
-                Revenue operations should not depend on someone
-                remembering every follow-up, forecast review or
-                stalled deal. These workflows turn operating signals
-                into management actions.
-            </div>
-            """
+    render_page_intro(
+        "Revenue Automation",
+        "The machine behind the sales team",
+        (
+            "Turn commercial signals into actions without relying "
+            "on somebody remembering every follow-up or forecast review."
         ),
-        unsafe_allow_html=True,
     )
 
     automations = [
-        (
-            "Deal Stall Monitor",
-            "ACTIVE",
-            (
-                "Detects inactivity, stage ageing "
-                "and missing next steps."
+        {
+            "name": "Deal Stall Monitor",
+            "status": "ACTIVE",
+            "description": (
+                "Detect inactivity, stage ageing and missing next steps."
             ),
-            (
-                f"{len(risky)} interventions "
-                "currently surfaced"
+            "output": (
+                f"{len(risky)} high / critical interventions surfaced"
             ),
-        ),
-        (
-            "Forecast Truth Engine",
-            "ACTIVE",
-            (
-                "Challenges rep-entered probability "
-                "using qualification quality."
+        },
+        {
+            "name": "Forecast Truth Engine",
+            "status": "ACTIVE",
+            "description": (
+                "Challenge rep probability against qualification evidence."
             ),
-            (
-                f"{money(optimism_gap)} optimism "
-                "currently detected"
+            "output": (
+                f"{money(optimism_gap)} forecast optimism detected"
             ),
-        ),
-        (
-            "Follow-up SLA Guard",
-            "ACTIVE",
-            (
-                "Finds opportunities with no "
-                "committed next action."
+        },
+        {
+            "name": "Inbox Intelligence",
+            "status": "SIMULATED",
+            "description": (
+                "Classify customer emails into commercial buying signals."
             ),
-            "Runs after meaningful sales activity",
-        ),
-        (
-            "Founder Escalation Engine",
-            "ACTIVE",
-            (
-                "Routes high-value, high-risk deals "
-                "for executive intervention."
+            "output": (
+                f"{len(inbox_activity)} synthetic email events processed"
             ),
-            (
-                f"{len(founder_deals)} opportunities "
-                "currently founder-linked"
+        },
+        {
+            "name": "Meeting Intelligence",
+            "status": "SIMULATED",
+            "description": (
+                "Convert transcripts into qualification and deal updates."
             ),
-        ),
-        (
-            "Expansion Radar",
-            "ACTIVE",
-            (
-                "Separates existing-account expansion "
-                "from new-logo pipeline."
+            "output": (
+                f"{len(meeting_activity)} synthetic meetings processed"
             ),
-            (
-                f"{money(expansion_pipeline)} expansion "
-                "pipeline identified"
+        },
+        {
+            "name": "Follow-up SLA Guard",
+            "status": "ACTIVE",
+            "description": (
+                "Create action when an opportunity loses momentum."
             ),
-        ),
-        (
-            "AI Call Intelligence",
-            "READY",
-            (
-                "Transcript → objections → stakeholders → "
-                "qualification → CRM update."
+            "output": (
+                "AE follow-up actions routed into Action Queue"
             ),
-            "API integration next",
-        ),
-        (
-            "AI Follow-up Agent",
-            "READY",
-            (
-                "Generates contextual follow-up from "
-                "deal state and conversation history."
+        },
+        {
+            "name": "Founder Escalation Engine",
+            "status": "ACTIVE",
+            "description": (
+                "Route high-value, high-risk deals for executive intervention."
             ),
-            "Human approval before send",
-        ),
+            "output": (
+                f"{len(founder_deals)} founder-linked opportunities"
+            ),
+        },
+        {
+            "name": "Expansion Radar",
+            "status": "ACTIVE",
+            "description": (
+                "Surface growth opportunities inside existing accounts."
+            ),
+            "output": (
+                f"{money(expansion_pipeline)} expansion pipeline"
+            ),
+        },
+        {
+            "name": "AI Deal Desk",
+            "status": "READY",
+            "description": (
+                "Generate deal diagnosis, close plans and follow-up."
+            ),
+            "output": (
+                "API connection intentionally deferred"
+            ),
+        },
     ]
 
-    for (
-        title,
-        status,
-        description,
-        result,
-    ) in automations:
+    for automation in automations:
 
-        status_class = (
-            "active"
-            if status == "ACTIVE"
-            else "ready"
-        )
+        with st.container(
+            border=True
+        ):
 
-        automation_html = dedent(
-            f"""
-            <div class="automation-card">
+            c1, c2 = st.columns(
+                [4, 1]
+            )
 
-                <div style="
-                    display:flex;
-                    justify-content:space-between;
-                    align-items:center;
-                    gap:16px;
-                ">
-                    <div class="automation-title">
-                        {title}
-                    </div>
+            with c1:
+                st.subheader(
+                    automation[
+                        "name"
+                    ]
+                )
 
-                    <span class="pill {status_class}">
-                        {status}
-                    </span>
-                </div>
+            with c2:
+                st.caption(
+                    automation[
+                        "status"
+                    ]
+                )
 
-                <div class="automation-copy">
-                    {description}
-                </div>
+            st.write(
+                automation[
+                    "description"
+                ]
+            )
 
-                <div style="
-                    margin-top:10px;
-                    font-size:0.82rem;
-                    font-weight:650;
-                    color:#3E3E3A;
-                ">
-                    {result}
-                </div>
-
-            </div>
-            """
-        )
-
-        st.markdown(
-            automation_html,
-            unsafe_allow_html=True,
-        )
+            st.info(
+                automation[
+                    "output"
+                ]
+            )
 
     st.divider()
 
@@ -1468,21 +1929,27 @@ elif page == "Automations":
 
     st.code(
         """
-Signal
+SIGNAL
   ↓
-Detect
+INGEST
   ↓
-Score / Diagnose
+CLASSIFY
   ↓
-Create Action
+UPDATE DEAL STATE
   ↓
-Human Approval
+QUALIFY
   ↓
-Execute
+RISK SCORE
   ↓
-CRM Updated
+FORECAST
   ↓
-Forecast Recalculated
+CREATE ACTION
+  ↓
+HUMAN APPROVAL
+  ↓
+EXECUTE
+  ↓
+RE-MONITOR
         """,
         language="text",
     )
@@ -1494,76 +1961,62 @@ Forecast Recalculated
 
 elif page == "Revenue Plan":
 
-    st.markdown(
-        '<div class="eyebrow">Revenue Architecture</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.title(
-        "What gets us to $3M?"
-    )
-
-    st.markdown(
-        dedent(
-            """
-            <div class="hero-copy">
-                Model the combination of average contract value,
-                conversion, sales capacity, expansion and pipeline
-                creation required to reach the next revenue stage.
-            </div>
-            """
+    render_page_intro(
+        "Revenue Architecture",
+        "What gets us to $3M?",
+        (
+            "Model the combination of ACV, conversion, pipeline, "
+            "sales capacity and expansion required to reach the next stage."
         ),
-        unsafe_allow_html=True,
     )
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3 = st.columns(
+        3
+    )
 
-    with c1:
-        metric_card(
-            "Public Ambition",
-            "$3M",
-            "Directional context from the role description",
-        )
+    c1.metric(
+        "Revenue Ambition",
+        "$3M",
+    )
 
-    with c2:
-        metric_card(
-            "Illustrative Pipeline",
-            money(
-                forecast.raw_pipeline
-            ),
-            "Current synthetic opportunity portfolio",
-        )
+    c2.metric(
+        "Illustrative Pipeline",
+        money(
+            forecast.raw_pipeline
+        ),
+    )
 
-    with c3:
-        metric_card(
-            "Expansion Identified",
-            money(
-                expansion_pipeline
-            ),
-            "Synthetic existing-account opportunity",
-        )
+    c3.metric(
+        "Expansion Identified",
+        money(
+            expansion_pipeline
+        ),
+    )
 
-    st.write("")
+    st.divider()
 
     st.subheader(
         "Revenue Digital Twin"
     )
 
-    sim1, sim2 = st.columns(2)
+    left, right = st.columns(
+        2
+    )
 
-    with sim1:
+    with left:
+
         average_contract_value = st.slider(
             "Average contract value",
             min_value=20000,
-            max_value=100000,
+            max_value=120000,
             value=50000,
             step=5000,
         )
 
         win_rate = st.slider(
-            "Qualified win rate",
+            "Qualified win rate (%)",
             min_value=10,
-            max_value=60,
+            max_value=70,
             value=30,
             step=1,
         )
@@ -1571,24 +2024,25 @@ elif page == "Revenue Plan":
         qualified_opportunities = st.slider(
             "Qualified opportunities / year",
             min_value=20,
-            max_value=200,
+            max_value=300,
             value=100,
             step=5,
         )
 
-    with sim2:
+    with right:
+
         expansion_share = st.slider(
             "Expansion contribution (%)",
             min_value=0,
-            max_value=40,
+            max_value=50,
             value=15,
             step=1,
         )
 
         ae_count = st.slider(
-            "AEs",
+            "Number of AEs",
             min_value=1,
-            max_value=10,
+            max_value=12,
             value=4,
             step=1,
         )
@@ -1596,12 +2050,12 @@ elif page == "Revenue Plan":
         capacity_per_ae = st.slider(
             "Qualified opportunities per AE / year",
             min_value=10,
-            max_value=50,
+            max_value=60,
             value=25,
             step=1,
         )
 
-    gross_new_revenue = (
+    new_logo_revenue = (
         average_contract_value
         * qualified_opportunities
         * (
@@ -1611,7 +2065,7 @@ elif page == "Revenue Plan":
     )
 
     expansion_revenue = (
-        gross_new_revenue
+        new_logo_revenue
         * (
             expansion_share
             / 100
@@ -1619,7 +2073,7 @@ elif page == "Revenue Plan":
     )
 
     modeled_revenue = (
-        gross_new_revenue
+        new_logo_revenue
         + expansion_revenue
     )
 
@@ -1629,7 +2083,7 @@ elif page == "Revenue Plan":
     )
 
     required_wins = (
-        3000000
+        LONG_TERM_REVENUE_TARGET
         / average_contract_value
     )
 
@@ -1639,51 +2093,236 @@ elif page == "Revenue Plan":
             win_rate
             / 100
         )
-        if win_rate > 0
+        if win_rate
         else 0
     )
 
-    st.write("")
     st.divider()
 
-    o1, o2, o3, o4 = st.columns(4)
+    r1, r2, r3, r4 = st.columns(
+        4
+    )
 
-    o1.metric(
+    r1.metric(
         "Modeled Revenue",
         money(
             modeled_revenue
         ),
     )
 
-    o2.metric(
+    r2.metric(
         "Required Wins",
         f"{required_wins:.0f}",
     )
 
-    o3.metric(
+    r3.metric(
         "Required Qualified Opps",
         f"{required_opportunities:.0f}",
     )
 
-    o4.metric(
+    r4.metric(
         "AE Capacity",
         f"{ae_capacity}",
     )
 
-    if modeled_revenue >= 3000000:
+    if modeled_revenue >= LONG_TERM_REVENUE_TARGET:
+
         st.success(
-            "This operating model clears the $3M revenue ambition."
+            "This operating model clears the $3M ambition."
         )
+
     else:
+
         shortfall = (
-            3000000
+            LONG_TERM_REVENUE_TARGET
             - modeled_revenue
         )
 
         st.warning(
-            f"This operating model is short by "
-            f"{money(shortfall)}."
+            "This operating model is short by "
+            + money(
+                shortfall
+            )
+            + "."
         )
+
+    if required_opportunities > ae_capacity:
+
+        st.error(
+            "Current AE capacity cannot support the required "
+            "qualified opportunity volume."
+        )
+
+    else:
+
+        st.success(
+            "AE capacity is sufficient for the modeled opportunity load."
+        )
+
+
+# ==========================================================
+# INTEGRATIONS
+# ==========================================================
+
+elif page == "Integrations":
+
+    render_page_intro(
+        "System Architecture",
+        "Integrations",
+        (
+            "How the prototype becomes a live Revenue OS connected "
+            "to the tools the sales team already uses."
+        ),
+    )
+
+    st.info(
+        "These connectors are architecture-ready concepts. "
+        "They are not currently authenticated to ThunderClap systems."
+    )
+
+    integrations = [
+        {
+            "name": "Gmail",
+            "status": "READY TO CONNECT",
+            "purpose": (
+                "Ingest customer threads, classify buying signals, "
+                "detect unanswered conversations and draft follow-up."
+            ),
+            "flow": (
+                "Gmail → Inbox Intelligence → Deal State → Action Queue"
+            ),
+        },
+        {
+            "name": "Google Calendar",
+            "status": "READY TO CONNECT",
+            "purpose": (
+                "Map meetings to opportunities and detect whether "
+                "qualified deals have committed next steps."
+            ),
+            "flow": (
+                "Calendar → Meeting Detection → Momentum Engine"
+            ),
+        },
+        {
+            "name": "Google Meet / Transcript",
+            "status": "READY TO CONNECT",
+            "purpose": (
+                "Process transcript or meeting notes into qualification, "
+                "stakeholders, objections and next actions."
+            ),
+            "flow": (
+                "Transcript → Meeting Intelligence → CRM Update"
+            ),
+        },
+        {
+            "name": "HubSpot",
+            "status": "ADAPTER READY",
+            "purpose": (
+                "Sync deals, stages, amounts, owners and activities."
+            ),
+            "flow": (
+                "CRM → Revenue OS → CRM"
+            ),
+        },
+        {
+            "name": "Salesforce",
+            "status": "AVAILABLE",
+            "purpose": (
+                "Alternative CRM adapter using the same canonical deal model."
+            ),
+            "flow": (
+                "Salesforce → Canonical Deal Model → Engines"
+            ),
+        },
+        {
+            "name": "Slack",
+            "status": "AVAILABLE",
+            "purpose": (
+                "Route founder escalations, deal alerts and daily briefs."
+            ),
+            "flow": (
+                "Revenue Action → Slack → Human"
+            ),
+        },
+        {
+            "name": "OpenAI / Claude",
+            "status": "DEFERRED",
+            "purpose": (
+                "Deal analysis, transcript extraction, close plans "
+                "and contextual follow-up generation."
+            ),
+            "flow": (
+                "Structured Deal Context → LLM → Human-reviewed Output"
+            ),
+        },
+    ]
+
+    for integration in integrations:
+
+        with st.container(
+            border=True
+        ):
+
+            c1, c2 = st.columns(
+                [4, 1]
+            )
+
+            c1.subheader(
+                integration[
+                    "name"
+                ]
+            )
+
+            c2.caption(
+                integration[
+                    "status"
+                ]
+            )
+
+            st.write(
+                integration[
+                    "purpose"
+                ]
+            )
+
+            st.code(
+                integration[
+                    "flow"
+                ],
+                language="text",
+            )
+
+    st.divider()
+
+    st.subheader(
+        "Live Architecture"
+    )
+
+    st.code(
+        """
+GMAIL ───────────────┐
+                     │
+GOOGLE CALENDAR ─────┤
+                     │
+MEETING TRANSCRIPT ──┤
+                     ↓
+               INGESTION LAYER
+                     ↓
+              CANONICAL DEAL MODEL
+                     ↓
+      ┌──────────────┼───────────────┐
+      ↓              ↓               ↓
+QUALIFICATION     DEAL RISK      FORECAST
+      └──────────────┼───────────────┘
+                     ↓
+              ACTION ORCHESTRATOR
+                     ↓
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+      CRM          GMAIL        SLACK
+        """,
+        language="text",
+    )
 
 
 # ==========================================================
@@ -1695,6 +2334,5 @@ st.write("")
 
 st.caption(
     "THUNDERCLAP REVENUE OS • Independent application prototype • "
-    "All CRM-level data is synthetic."
+    "All account, deal, communication and meeting data is synthetic."
 )
-  
